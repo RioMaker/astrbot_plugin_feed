@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>赞助设置</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <div class="brand"><span class="brand-mark" aria-hidden="true">♡</span><div><p class="eyebrow">A LITTLE SUPPORT, A LOT OF LOVE</p><h1>赞助</h1><p class="subtitle">让可可子替你收下每一份心意。</p></div></div>
+      <div class="header-actions"><span id="save-state" class="state">正在连接…</span><button id="reload" type="button" class="secondary">重新载入</button><button id="confirm-reload" type="button" class="secondary" hidden>放弃修改并载入</button><button id="save" type="button" disabled>保存设置</button></div>
+    </header>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <div class="layout">
+      <form id="settings-form" class="controls" novalidate>
+        <section class="panel">
+          <div class="section-heading"><span class="step">01</span><h2>收款二维码</h2><span id="qr-state" class="tag">未设置</span></div>
+          <label class="upload-zone" id="drop-zone" for="qr-file"><span class="upload-icon" aria-hidden="true">＋</span><strong>点击选择，或拖入二维码</strong><span>PNG / JPG / WebP · 最大 8 MB</span><input id="qr-file" type="file" accept="image/png,image/jpeg,image/webp" /></label>
+          <div class="file-info"><span id="file-name">上传一张清晰的收款二维码</span><button type="button" id="remove-qr" class="text-button" disabled>移除</button></div>
+          <p class="hint">图片会完整嵌入卡片。建议上传正方形二维码，并保留原图白边。</p>
+        </section>
+        <section class="panel">
+          <div class="section-heading"><span class="step">02</span><h2>可可子说什么</h2></div>
+          <label for="bubble-text">气泡文案 <span id="text-count" class="counter">0 / 120</span></label>
+          <textarea id="bubble-text" rows="4" maxlength="120" placeholder="写一句感谢投喂的话…"></textarea>
+          <p class="hint">支持换行，字号会随文字长度自动调整。</p>
+          <label for="footer-text" class="spaced">二维码下方说明</label>
+          <input id="footer-text" type="text" maxlength="32" placeholder="自愿赞助 · 感谢每一份心意" />
+        </section>
+        <section class="panel compact">
+          <div><label for="enabled" class="toggle-title">开启 /投喂</label><p class="hint">保存后，发送指令即可收到赞助图片。</p></div>
+          <label class="switch"><input id="enabled" type="checkbox" /><span></span></label>
+        </section>
+        <p class="local-note">修改后可先看预览，点击「保存设置」才会用于聊天。</p>
+      </form>
+      <section class="preview-panel" aria-labelledby="preview-title">
+        <div class="preview-heading"><div><p class="eyebrow">THE LITTLE THANK-YOU CARD</p><h2 id="preview-title">卡片预览</h2></div><button id="refresh-preview" type="button" class="secondary" disabled>刷新预览</button></div>
+        <div class="preview-stage"><div id="preview-empty">正在准备可可子的赞助卡片…</div><img id="preview-image" alt="赞助卡片预览" hidden /></div>
+        <div class="preview-footer"><span id="preview-state" role="status">等待连接</span><button id="download" type="button" class="text-button" disabled>下载预览图 ↓</button></div>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

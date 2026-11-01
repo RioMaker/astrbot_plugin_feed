@@ -1,0 +1,7 @@
+name: astrbot_plugin_feed
+display_name: 赞助
+desc: 输入 /投喂，发送可可子赞助卡片；支持上传付款二维码、配置气泡文案和在 AstrBot 中预览修改。
+version: "0.1.0"
+author: Rio
+repo: ""
+astrbot_version: ">=4.13.0"

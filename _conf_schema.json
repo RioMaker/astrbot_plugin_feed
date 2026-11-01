@@ -1,0 +1,26 @@
+{
+  "enabled": {
+    "type": "bool",
+    "description": "启用 /投喂",
+    "default": true
+  },
+  "payment_qr": {
+    "type": "file",
+    "description": "付款二维码图片",
+    "hint": "上传并只保留一张 PNG、JPG 或 WebP 图片。推荐使用清晰的正方形二维码。也可在插件的赞助设置页面上传并预览。",
+    "default": [],
+    "file_types": ["png", "jpg", "jpeg", "webp"]
+  },
+  "bubble_text": {
+    "type": "text",
+    "description": "可可子的气泡文案",
+    "hint": "最多 120 字、4 个手动换行段落，自动换行并调整字号。",
+    "default": "谢谢你的投喂！\n可可子会继续努力哒～"
+  },
+  "footer_text": {
+    "type": "string",
+    "description": "二维码下方说明",
+    "hint": "最多 32 字。留空不显示。",
+    "default": "自愿赞助 · 感谢每一份心意"
+  }
+}
