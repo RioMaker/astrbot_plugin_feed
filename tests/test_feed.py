@@ -270,7 +270,113 @@ async def test_admin_preview_does_not_save_and_errors(service):
 
 def test_page_entries_are_synchronized():
     root = Path(__file__).resolve().parents[1]
-    for filename in ("index.html", "app.js", "style.css"):
+    for filename in ("index.html", "app.js", "style.css", "cropper.js"):
         assert (root / "pages/settings" / filename).read_bytes() == (
             root / "views/settings" / filename
         ).read_bytes()
+
+
+async def test_crop_payment_screenshot_keeps_code_and_source(service, code):
+    value, qr, raw = code
+    screenshot = Image.new("RGB", (qr.width + 160, qr.height + 300), "#aaddaa")
+    screenshot.paste(qr, (80, 140))
+    source = await service.upload(image_bytes(screenshot))
+    original = (service.data_dir / source).read_bytes()
+    target = await service.crop(
+        "qr", source, {"x": 80, "y": 140, "width": qr.width, "height": qr.height}
+    )
+    assert target != source
+    assert (service.data_dir / source).read_bytes() == original
+    assert service.settings()["payment_qr"] == []
+    draft = {**service.settings(), "payment_qr": [target]}
+    result = Image.open(io.BytesIO(await service.preview(draft)))
+    assert zxingcpp.read_barcode(result).text == value
+
+
+async def test_custom_template_crop_and_restore_default(service, code):
+    service.config["payment_qr"] = [await service.upload(code[2])]
+    before = await service.command_image()
+    default_asset = (ASSETS / "keko-feeding.png").read_bytes()
+    custom = Image.new("RGBA", (500, 240), (0, 0, 0, 0))
+    custom.paste((245, 25, 25, 255), (80, 80, 420, 200))
+    source = await service.upload(image_bytes(custom), "character")
+    cropped = await service.crop(
+        "character", source, {"x": 40, "y": 40, "width": 420, "height": 180}
+    )
+    with Image.open(service.data_dir / cropped) as image:
+        assert image.size == (420, 180)
+        assert image.getchannel("A").getextrema() == (0, 255)
+    state = service.state()
+    await service.save(
+        {**state["settings"], "character_image": [cropped]}, state["revision"]
+    )
+    after = await service.command_image()
+    assert before != after
+    assert (
+        ImageChops.difference(
+            Image.open(io.BytesIO(before)).crop(QR_BOX),
+            Image.open(io.BytesIO(after)).crop(QR_BOX),
+        ).getbbox()
+        is None
+    )
+    state = service.state()
+    await service.save({**state["settings"], "character_image": []}, state["revision"])
+    assert await service.command_image() == before
+    assert (ASSETS / "keko-feeding.png").read_bytes() == default_asset
+    assert (service.data_dir / source).exists()
+
+
+@pytest.mark.parametrize(
+    "box",
+    [
+        None,
+        {},
+        {"x": -1, "y": 0, "width": 80, "height": 80},
+        {"x": 1.5, "y": 0, "width": 80, "height": 80},
+        {"x": True, "y": 0, "width": 80, "height": 80},
+        {"x": 0, "y": 0, "width": 79, "height": 80},
+        {"x": 0, "y": 0, "width": 9999, "height": 80},
+    ],
+)
+async def test_invalid_crops_leave_upload_unchanged(service, code, box):
+    path = await service.upload(code[2])
+    before = (service.data_dir / path).read_bytes()
+    with pytest.raises(FeedError):
+        await service.crop("qr", path, box)
+    assert (service.data_dir / path).read_bytes() == before
+    assert len(list(service.upload_dir.glob("*.png"))) == 1
+
+
+async def test_asset_reader_rejects_other_kind_and_path(service, code):
+    path = await service.upload(code[2])
+    for kind, source in [
+        ("unsupported", path),
+        ("character", path),
+        ("qr", "../private.png"),
+        ("qr", "files/payment_qr/../../private.png"),
+    ]:
+        with pytest.raises(FeedError):
+            await service.image_info(kind, source)
+
+
+async def test_title_migration_save_and_render(service, code):
+    service.config.pop("card_title")
+    service.config.pop("character_image")
+    assert service.settings()["card_title"] == "赞助"
+    assert service.settings()["character_image"] == []
+    service.config["payment_qr"] = [await service.upload(code[2])]
+    before = Image.open(io.BytesIO(await service.command_image()))
+    state = service.state()
+    await service.save(
+        {**state["settings"], "card_title": "可可子投喂站"}, state["revision"]
+    )
+    after = Image.open(io.BytesIO(await service.command_image()))
+    bounds = ImageChops.difference(before, after).getbbox()
+    assert bounds and bounds[1] >= 70 and bounds[3] <= 147
+    assert zxingcpp.read_barcode(after).text == code[0]
+
+
+@pytest.mark.parametrize("title", ["", "\n", "字" * 21, "第一行\n第二行"])
+def test_invalid_titles(title):
+    with pytest.raises(FeedError):
+        validate_settings({"card_title": title})

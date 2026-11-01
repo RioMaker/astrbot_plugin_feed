@@ -16,13 +16,26 @@
     <div class="layout">
       <form id="settings-form" class="controls" novalidate>
         <section class="panel">
-          <div class="section-heading"><span class="step">01</span><h2>收款二维码</h2><span id="qr-state" class="tag">未设置</span></div>
-          <label class="upload-zone" id="drop-zone" for="qr-file"><span class="upload-icon" aria-hidden="true">＋</span><strong>点击选择，或拖入二维码</strong><span>PNG / JPG / WebP · 最大 8 MB</span><input id="qr-file" type="file" accept="image/png,image/jpeg,image/webp" /></label>
-          <div class="file-info"><span id="file-name">上传一张清晰的收款二维码</span><button type="button" id="remove-qr" class="text-button" disabled>移除</button></div>
-          <p class="hint">图片会完整嵌入卡片。建议上传正方形二维码，并保留原图白边。</p>
+          <div class="section-heading"><span class="step">01</span><h2>卡片标题</h2></div>
+          <label for="card-title">顶部标题 <span id="title-count" class="counter">0 / 20</span></label>
+          <input id="card-title" type="text" maxlength="20" placeholder="赞助" />
+          <p class="hint">最多 20 字，单行。标题底色宽度和字号会随长度调整。</p>
         </section>
         <section class="panel">
-          <div class="section-heading"><span class="step">02</span><h2>可可子说什么</h2></div>
+          <div class="section-heading"><span class="step">02</span><h2>收款二维码</h2><span id="qr-state" class="tag">未设置</span></div>
+          <label class="upload-zone" id="drop-zone" for="qr-file"><span class="upload-icon" aria-hidden="true">＋</span><strong>点击选择，或拖入二维码</strong><span>PNG / JPG / WebP · 最大 8 MB</span><input id="qr-file" type="file" accept="image/png,image/jpeg,image/webp" /></label>
+          <div class="file-info"><span id="file-name">上传一张清晰的收款二维码</span><button type="button" id="crop-qr" class="text-button" disabled>重新裁切</button><button type="button" id="remove-qr" class="text-button" disabled>移除</button></div>
+          <div class="image-spec"><strong>推荐 520 × 520 或 1040 × 1040 像素 · 1:1</strong><p>卡片中的显示区为 520 × 520 像素。裁切时请保留完整二维码和四周白边；也可以直接使用整张图片。</p><p>PNG / JPG / WebP，最大 8 MB；至少 80 × 80，最长边 6000，总像素不超过 1600 万。</p></div>
+        </section>
+        <section class="panel">
+          <div class="section-heading"><span class="step">03</span><h2>角色模板</h2><span id="character-state" class="tag">内置可可子</span></div>
+          <div class="template-thumb"><img id="character-preview" alt="当前角色模板" hidden /><span id="character-loading">正在读取角色模板…</span></div>
+          <label class="upload-zone compact-upload" id="character-drop-zone" for="character-file"><strong>替换角色图片</strong><span>上传后可裁切，透明区域会保留</span><input id="character-file" type="file" accept="image/png,image/jpeg,image/webp" /></label>
+          <div class="file-info"><span id="character-name">使用内置可可子</span><button type="button" id="crop-character" class="text-button" disabled>裁切模板</button><button type="button" id="restore-character" class="text-button" disabled>恢复默认</button></div>
+          <div class="image-spec"><strong>推荐 1600 × 672 像素 · 透明 PNG</strong><p>角色显示区为 800 × 336 像素（50:21）。其他比例会等比缩放、底部对齐；气泡和二维码位置保留。</p><p>PNG / JPG / WebP，最大 8 MB；至少 80 × 80，最长边 6000，总像素不超过 1600 万。JPG 自带的背景不会自动抠掉。</p></div>
+        </section>
+        <section class="panel">
+          <div class="section-heading"><span class="step">04</span><h2>可可子说什么</h2></div>
           <label for="bubble-text">气泡文案 <span id="text-count" class="counter">0 / 120</span></label>
           <textarea id="bubble-text" rows="4" maxlength="120" placeholder="写一句感谢投喂的话…"></textarea>
           <p class="hint">支持换行，字号会随文字长度自动调整。</p>
@@ -39,9 +52,19 @@
         <div class="preview-heading"><div><p class="eyebrow">THE LITTLE THANK-YOU CARD</p><h2 id="preview-title">卡片预览</h2></div><button id="refresh-preview" type="button" class="secondary" disabled>刷新预览</button></div>
         <div class="preview-stage"><div id="preview-empty">正在准备可可子的赞助卡片…</div><img id="preview-image" alt="赞助卡片预览" hidden /></div>
         <div class="preview-footer"><span id="preview-state" role="status">等待连接</span><button id="download" type="button" class="text-button" disabled>下载预览图 ↓</button></div>
+        <p class="output-spec">成图尺寸 1080 × 1440 像素（3:4）· PNG</p>
       </section>
     </div>
   </main>
+  <dialog id="crop-dialog" class="crop-dialog" aria-labelledby="crop-heading">
+    <div class="crop-heading"><div><h2 id="crop-heading">裁切图片</h2><p id="crop-help" class="hint"></p></div><button id="crop-cancel" class="secondary" type="button">取消</button></div>
+    <div class="crop-toolbar"><label for="crop-aspect">选区比例</label><select id="crop-aspect"><option value="free">自由裁切</option><option value="recommended" id="crop-recommended">推荐比例</option><option value="original">原图比例</option></select><button id="crop-reset" type="button" class="text-button">重置选区</button><span id="crop-source-size"></span></div>
+    <canvas id="crop-canvas" width="960" height="560" aria-label="拖动选框移动，拖动四角调整裁切范围"></canvas>
+    <p class="hint">拖动选框移动、拖动四角缩放，或在下方输入精确像素。选框外的区域会被裁掉。</p>
+    <div class="crop-numbers"><label>左侧 X<input id="crop-x" type="number" min="0" step="1" /></label><label>顶部 Y<input id="crop-y" type="number" min="0" step="1" /></label><label>宽度<input id="crop-width" type="number" min="1" step="1" /></label><label>高度<input id="crop-height" type="number" min="1" step="1" /></label></div>
+    <p id="crop-size-error" class="crop-error" hidden>选区至少需要 80 × 80 像素。</p>
+    <div class="crop-actions"><span id="crop-selection-size" aria-live="polite"></span><button id="crop-original" type="button" class="secondary">使用整张图片</button><button id="crop-apply" type="button">应用裁切</button></div>
+  </dialog>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

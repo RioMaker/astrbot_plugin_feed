@@ -26,6 +26,9 @@ class AdminAPI:
             ("settings/save", self.save, "POST"),
             ("preview", self.preview, "POST"),
             ("qr/upload", self.upload, "POST"),
+            ("character/upload", self.upload_character, "POST"),
+            ("images/read", self.read_image, "POST"),
+            ("images/crop", self.crop_image, "POST"),
         ):
             guarded = self.guard(handler)
             self.context.register_web_api(
@@ -109,11 +112,27 @@ class AdminAPI:
             }
         )
 
-    async def upload(self):
+    async def upload(self, kind="qr"):
         files = await self.web.request.files()
         upload = files.get("file")
         if not isinstance(upload, self.web.PluginUploadFile):
-            raise FeedError("请选择二维码图片。")
+            raise FeedError("请选择图片。")
         raw = await upload.read(MAX_IMAGE_BYTES + 1)
-        path = await self.service.upload(raw)
+        path = await self.service.upload(raw, kind)
+        return self.response({"path": path})
+
+    async def upload_character(self):
+        return await self.upload("character")
+
+    async def read_image(self):
+        data = await self.payload()
+        return self.response(
+            await self.service.image_info(data.get("kind"), data.get("path"))
+        )
+
+    async def crop_image(self):
+        data = await self.payload()
+        path = await self.service.crop(
+            data.get("kind"), data.get("path"), data.get("box")
+        )
         return self.response({"path": path})

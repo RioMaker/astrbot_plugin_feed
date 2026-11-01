@@ -7,9 +7,22 @@
   "payment_qr": {
     "type": "file",
     "description": "付款二维码图片",
-    "hint": "上传并只保留一张 PNG、JPG 或 WebP 图片。推荐使用清晰的正方形二维码。也可在插件的赞助设置页面上传并预览。",
+    "hint": "建议 520×520 或 1040×1040 像素（1:1），显示区域 520×520。至少 80×80，最长边 6000、总像素不超过 1600 万、文件不超过 8 MB。可在赞助设置页面裁切，保留完整二维码与白边。",
     "default": [],
     "file_types": ["png", "jpg", "jpeg", "webp"]
+  },
+  "character_image": {
+    "type": "file",
+    "description": "角色模板图片",
+    "hint": "留空恢复内置可可子。建议 1600×672 透明 PNG，显示区 800×336（50:21）；任意比例会等比缩放、底部对齐。支持 PNG/JPG/WebP，至少 80×80，最长边 6000、总像素不超过 1600 万、文件不超过 8 MB。可在赞助设置页面裁切。",
+    "default": [],
+    "file_types": ["png", "jpg", "jpeg", "webp"]
+  },
+  "card_title": {
+    "type": "string",
+    "description": "卡片标题",
+    "hint": "卡片顶部的标题，最多 20 字、单行，标题底色和字号随长度自动调整。",
+    "default": "赞助"
   },
   "bubble_text": {
     "type": "text",

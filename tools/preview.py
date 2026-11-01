@@ -71,6 +71,7 @@ class Handler(BaseHTTPRequestHandler):
             "/": "index.html",
             "/index.html": "index.html",
             "/app.js": "app.js",
+            "/cropper.js": "cropper.js",
             "/style.css": "style.css",
         }
         filename = files.get(self.path.split("?", 1)[0])
@@ -83,6 +84,7 @@ class Handler(BaseHTTPRequestHandler):
         mime = {
             "index.html": "text/html; charset=utf-8",
             "app.js": "text/javascript; charset=utf-8",
+            "cropper.js": "text/javascript; charset=utf-8",
             "style.css": "text/css; charset=utf-8",
         }[filename]
         self.send(200, text.encode(), mime)
@@ -104,11 +106,26 @@ class Handler(BaseHTTPRequestHandler):
                 result = {
                     "image": "data:image/png;base64," + base64.b64encode(image).decode()
                 }
-            elif self.path == "/dev/qr/upload":
+            elif self.path in {"/dev/qr/upload", "/dev/character/upload"}:
+                kind = self.path.split("/")[2]
                 path = loop.run_until_complete(
-                    service.upload(base64.b64decode(data["base64"], validate=True))
+                    service.upload(
+                        base64.b64decode(data["base64"], validate=True), kind
+                    )
                 )
                 result = {"path": path}
+            elif self.path == "/dev/images/read":
+                result = loop.run_until_complete(
+                    service.image_info(data.get("kind"), data.get("path"))
+                )
+            elif self.path == "/dev/images/crop":
+                result = {
+                    "path": loop.run_until_complete(
+                        service.crop(
+                            data.get("kind"), data.get("path"), data.get("box")
+                        )
+                    )
+                }
             else:
                 raise FeedError("Not found", 404)
             self.send(200, json.dumps(result, ensure_ascii=False).encode())

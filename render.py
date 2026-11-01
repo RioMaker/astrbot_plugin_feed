@@ -19,8 +19,8 @@ QR_BOX = (280, 752, 800, 1272)
 CHARACTER_BOX = (140, 400, 940, 736)
 
 
-def load_image(data: bytes) -> Image.Image:
-    """限制解码成本；透明背景合并为白色，不重画或裁掉二维码。"""
+def load_image(data: bytes, *, preserve_alpha: bool = False) -> Image.Image:
+    """限制解码成本；角色保留透明度，二维码的透明背景合并为白色。"""
     if not data or len(data) > MAX_IMAGE_BYTES:
         raise FeedError("图片不能为空，且不能超过 8 MB。")
     try:
@@ -34,10 +34,12 @@ def load_image(data: bytes) -> Image.Image:
                         "图片过大，请使用不超过 1600 万像素、边长 6000 的图片。"
                     )
                 if min(source.size) < 80:
-                    raise FeedError("二维码图片太小，请上传至少 80 × 80 像素的图片。")
+                    raise FeedError("图片太小，请上传至少 80 × 80 像素的图片。")
                 if getattr(source, "n_frames", 1) != 1:
-                    raise FeedError("请上传静态二维码图片。")
+                    raise FeedError("请上传静态图片。")
                 rgba = ImageOps.exif_transpose(source).convert("RGBA")
+                if preserve_alpha:
+                    return rgba
                 white = Image.new("RGBA", rgba.size, "white")
                 white.alpha_composite(rgba)
                 return white.convert("RGB")
@@ -88,7 +90,11 @@ def _center(draw: ImageDraw.ImageDraw, text: str, y: int, size: int, fill: str):
 
 
 def render_card(
-    settings: dict, qr: Image.Image | None, character_path: Path | None = None
+    settings: dict,
+    qr: Image.Image | None,
+    character_path: Path | None = None,
+    *,
+    character: Image.Image | None = None,
 ) -> bytes:
     canvas = Image.new("RGB", CARD_SIZE, "#f9f7ed")
     draw = ImageDraw.Draw(canvas)
@@ -96,8 +102,17 @@ def render_card(
     draw.rounded_rectangle((32, 32, 1048, 1408), radius=60, fill="#edf3da")
     draw.ellipse((-160, 1020, 270, 1450), fill="#e1ebc6")
     draw.ellipse((870, -130, 1230, 230), fill="#e1ebc6")
-    draw.rounded_rectangle((426, 70, 654, 146), radius=38, fill="#314d3e")
-    _center(draw, "赞助", 80, 44, "#fffdf4")
+    title = settings["card_title"]
+    title_size = 44
+    while title_size > 28 and font(title_size).getlength(title) > 828:
+        title_size -= 1
+    title_width = max(228, font(title_size).getlength(title) + 72)
+    draw.rounded_rectangle(
+        (540 - title_width / 2, 70, 540 + title_width / 2, 146),
+        radius=38,
+        fill="#314d3e",
+    )
+    _center(draw, title, 80 + (44 - title_size) // 2, title_size, "#fffdf4")
     _center(draw, "给可可子一点小小的鼓励", 160, 24, "#647455")
 
     bubble = (135, 218, 945, 398)
@@ -128,20 +143,21 @@ def render_card(
         _center(draw, "此处为预览占位，不可付款", 1032, 21, "#929a88")
 
     character_path = character_path or ASSETS / "keko-feeding.png"
-    if character_path.is_file():
+    if character is None and character_path.is_file():
         with Image.open(character_path) as source:
             character = source.convert("RGBA")
             alpha_bbox = character.getchannel("A").getbbox()
             if alpha_bbox:
                 character = character.crop(alpha_bbox)
-            character = ImageOps.contain(
-                character, (800, 336), Image.Resampling.LANCZOS
-            )
-            canvas.paste(
-                character,
-                ((1080 - character.width) // 2, 736 - character.height),
-                character,
-            )
+    if character is not None:
+        character = ImageOps.contain(
+            character.convert("RGBA"), (800, 336), Image.Resampling.LANCZOS
+        )
+        canvas.paste(
+            character,
+            ((1080 - character.width) // 2, 736 - character.height),
+            character,
+        )
     else:
         _center(draw, "可可子模板待生成", 545, 30, "#8b977c")
     footer = settings["footer_text"]
