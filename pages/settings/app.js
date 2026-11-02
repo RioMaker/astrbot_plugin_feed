@@ -6,10 +6,12 @@ const cropper = new ImageCropper();
 let savedRevision = "";
 let paymentQr = [];
 let characterImages = [];
-let characterPreviewSequence = 0;
+let backgroundImages = [];
+const templatePreviewSequence = {character: 0, background: 0};
 const assetOptions = {
   qr: {label: "付款二维码", ratio: 1, aspectLabel: "正方形 1:1（推荐）", help: "建议 520 × 520 或 1040 × 1040 像素。务必保留完整二维码和四周白边。"},
   character: {label: "角色模板", ratio: 50 / 21, aspectLabel: "角色区 50:21", help: "推荐 1600 × 672 透明 PNG。裁切保留透明区域，不会自动抠图。"},
+  background: {label: "整张底图", ratio: 3 / 4, aspectLabel: "整张底图 3:4（推荐）", help: "推荐 1080 × 1440 或 2160 × 2880 像素。选择 3:4 可铺满成图；标题、气泡、角色和二维码会叠加在底图上。"},
 };
 let connected = false;
 let busy = false;
@@ -25,7 +27,7 @@ function notice(message, error = false) {
   $("notice").hidden = !message;
 }
 function settings() {
-  return {enabled: $("enabled").checked, payment_qr: [...paymentQr], character_image: [...characterImages], card_title: $("card-title").value, bubble_text: $("bubble-text").value, footer_text: $("footer-text").value};
+  return {enabled: $("enabled").checked, payment_qr: [...paymentQr], character_image: [...characterImages], background_image: [...backgroundImages], card_title: $("card-title").value, bubble_text: $("bubble-text").value, footer_text: $("footer-text").value};
 }
 function buttons() {
   $("save").disabled = !connected || busy || !dirty;
@@ -37,6 +39,9 @@ function buttons() {
   $("character-file").disabled = !connected || busy;
   $("crop-character").disabled = !connected || busy;
   $("restore-character").disabled = !connected || busy || !characterImages.length;
+  $("background-file").disabled = !connected || busy;
+  $("crop-background").disabled = !connected || busy;
+  $("restore-background").disabled = !connected || busy || !backgroundImages.length;
   $("download").disabled = !currentImage || busy;
   $("save-state").textContent = !connected ? "尚未连接" : busy ? "处理中…" : dirty ? "有未保存的修改" : "已保存";
   $("save-state").classList.toggle("dirty", dirty);
@@ -45,6 +50,7 @@ function buttons() {
   $("qr-state").textContent = paymentQr.length ? "已选择" : "未设置";
   $("qr-state").classList.toggle("ready", !!paymentQr.length);
   $("character-state").textContent = characterImages.length ? "自定义模板" : "内置可可子";
+  $("background-state").textContent = backgroundImages.length ? "自定义底图" : "默认底图";
 }
 function changed() {
   if (!connected) return;
@@ -84,12 +90,14 @@ function applyState(state) {
   savedRevision = state.revision;
   paymentQr = [...state.settings.payment_qr];
   characterImages = [...(state.settings.character_image || [])];
+  backgroundImages = [...(state.settings.background_image || [])];
   $("card-title").value = state.settings.card_title ?? "赞助";
   $("bubble-text").value = state.settings.bubble_text;
   $("footer-text").value = state.settings.footer_text;
   $("enabled").checked = state.settings.enabled;
   $("file-name").textContent = paymentQr.length ? "已使用保存的二维码图片" : "上传一张清晰的收款二维码";
   $("character-name").textContent = characterImages.length ? "使用保存的角色模板" : "使用内置可可子";
+  $("background-name").textContent = backgroundImages.length ? "使用保存的整张底图" : "使用默认浅绿色底图";
   dirty = false;
   editVersion++;
   buttons();
@@ -111,7 +119,7 @@ async function reload(force = false) {
     connected = true;
     applyState(state);
     notice(state.template_ready ? "" : "角色模板缺失，请重新安装完整插件。", !state.template_ready);
-    await Promise.all([preview(), refreshCharacterPreview()]);
+    await Promise.all([preview(), refreshTemplatePreview("character"), refreshTemplatePreview("background")]);
   } catch (error) {notice(error.message || "读取配置失败。", true);}
   finally {
     busy = false;
@@ -119,13 +127,16 @@ async function reload(force = false) {
     buttons();
   }
 }
-async function refreshCharacterPreview() {
-  const sequence = ++characterPreviewSequence;
-  const data = await bridge.apiPost("images/read", {kind: "character", path: characterImages[0] || ""});
-  if (sequence !== characterPreviewSequence) return;
-  $("character-preview").src = data.image;
-  $("character-preview").hidden = false;
-  $("character-loading").hidden = true;
+function imageSelection(kind) {
+  return kind === "qr" ? paymentQr : kind === "character" ? characterImages : backgroundImages;
+}
+async function refreshTemplatePreview(kind) {
+  const sequence = ++templatePreviewSequence[kind];
+  const data = await bridge.apiPost("images/read", {kind, path: imageSelection(kind)[0] || ""});
+  if (sequence !== templatePreviewSequence[kind]) return;
+  $(kind + "-preview").src = data.image;
+  $(kind + "-preview").hidden = false;
+  $(kind + "-loading").hidden = true;
 }
 
 async function cropAndUse(kind, path, name) {
@@ -140,12 +151,15 @@ async function cropAndUse(kind, path, name) {
   if (kind === "qr") {
     paymentQr = [chosen];
     $("file-name").textContent = name;
-  } else {
+  } else if (kind === "character") {
     characterImages = chosen ? [chosen] : [];
     $("character-name").textContent = name;
+  } else {
+    backgroundImages = chosen ? [chosen] : [];
+    $("background-name").textContent = name;
   }
   changed();
-  if (kind === "character") await refreshCharacterPreview();
+  if (kind !== "qr") await refreshTemplatePreview(kind);
   notice(`${assetOptions[kind].label}已加入预览，保存设置后用于 /投喂。`);
 }
 
@@ -159,15 +173,15 @@ async function upload(file, kind = "qr") {
     const result = await bridge.upload(`${kind}/upload`, file);
     await cropAndUse(kind, result.path, file.name);
   } catch (error) {notice(error.message || "上传失败。", true);}
-  finally {busy = false; $(kind === "qr" ? "qr-file" : "character-file").value = ""; buttons();}
+  finally {busy = false; $(kind + "-file").value = ""; buttons();}
 }
 
 async function recrop(kind) {
   if (busy || !connected) return;
   busy = true; buttons();
   try {
-    const path = (kind === "qr" ? paymentQr : characterImages)[0] || "";
-    await cropAndUse(kind, path, kind === "qr" ? "裁切后的二维码" : "裁切后的角色模板");
+    const path = imageSelection(kind)[0] || "";
+    await cropAndUse(kind, path, "裁切后的" + assetOptions[kind].label);
   } catch (error) {notice(error.message || "裁切失败。", true);}
   finally {busy = false; buttons();}
 }
@@ -194,18 +208,23 @@ $("settings-form").addEventListener("submit", (event) => event.preventDefault())
 for (const id of ["card-title", "bubble-text", "footer-text", "enabled"]) $(id).addEventListener("input", changed);
 $("qr-file").addEventListener("change", (event) => upload(event.target.files[0]));
 $("character-file").addEventListener("change", (event) => upload(event.target.files[0], "character"));
+$("background-file").addEventListener("change", (event) => upload(event.target.files[0], "background"));
 $("crop-qr").addEventListener("click", () => recrop("qr"));
 $("crop-character").addEventListener("click", () => recrop("character"));
-$("restore-character").addEventListener("click", async () => {
-  if (busy || !connected) return;
-  characterImages = [];
-  $("character-name").textContent = "使用内置可可子";
-  changed();
-  try {await refreshCharacterPreview(); notice("已在预览中恢复默认可可子，保存后生效。");}
-  catch (error) {notice(error.message, true);}
-});
+$("crop-background").addEventListener("click", () => recrop("background"));
+for (const kind of ["character", "background"]) {
+  $("restore-" + kind).addEventListener("click", async () => {
+    if (busy || !connected) return;
+    if (kind === "character") characterImages = [];
+    else backgroundImages = [];
+    $(kind + "-name").textContent = kind === "character" ? "使用内置可可子" : "使用默认浅绿色底图";
+    changed();
+    try {await refreshTemplatePreview(kind); notice(`已在预览中恢复默认${assetOptions[kind].label}，保存后生效。`);}
+    catch (error) {notice(error.message, true);}
+  });
+}
 $("remove-qr").addEventListener("click", () => {paymentQr = []; $("file-name").textContent = "上传一张清晰的收款二维码"; changed();});
-for (const [id, kind] of [["drop-zone", "qr"], ["character-drop-zone", "character"]]) {
+for (const [id, kind] of [["drop-zone", "qr"], ["character-drop-zone", "character"], ["background-drop-zone", "background"]]) {
   const zone = $(id);
   for (const name of ["dragenter", "dragover"]) zone.addEventListener(name, (event) => {event.preventDefault(); zone.classList.add("dragging");});
   for (const name of ["dragleave", "drop"]) zone.addEventListener(name, (event) => {event.preventDefault(); zone.classList.remove("dragging");});

@@ -20,7 +20,7 @@ from .config import (
     revision,
     validate_settings,
 )
-from .render import ASSETS, MAX_IMAGE_BYTES, load_image, render_card
+from .render import ASSETS, MAX_IMAGE_BYTES, default_background, load_image, render_card
 
 
 class FeedService:
@@ -60,13 +60,14 @@ class FeedService:
         path = image_path(self.data_dir, field, settings[field])
         if path is None:
             return None
-        return self._read_image(path, preserve_alpha=kind == "character")
+        return self._read_image(path, preserve_alpha=kind != "qr")
 
     def _render(self, settings):
         return render_card(
             settings,
             self._image(settings),
             character=self._image(settings, "character"),
+            background=self._image(settings, "background"),
         )
 
     async def preview(self, settings: dict) -> bytes:
@@ -116,9 +117,7 @@ class FeedService:
 
     def _store_upload(self, raw: bytes, kind: str) -> str:
         image_field(kind)
-        return self._store_image(
-            load_image(raw, preserve_alpha=kind == "character"), kind
-        )
+        return self._store_image(load_image(raw, preserve_alpha=kind != "qr"), kind)
 
     async def upload(self, raw: bytes, kind: str = "qr") -> str:
         # Windows 不允许两个线程同时替换同一个目标文件。
@@ -131,11 +130,13 @@ class FeedService:
         field = image_field(kind)
         if not isinstance(path, str):
             raise FeedError("请选择图片文件。")
+        if not path and kind == "background":
+            return default_background()
         if not path and kind == "character":
             target = ASSETS / "keko-feeding.png"
         else:
             target = image_path(self.data_dir, field, [path])
-        return self._read_image(target, preserve_alpha=kind == "character")
+        return self._read_image(target, preserve_alpha=kind != "qr")
 
     def _image_info(self, kind, path):
         image = self._source_image(kind, path)
@@ -199,6 +200,9 @@ class FeedService:
                     qr_path(self.data_dir, settings),
                     image_path(
                         self.data_dir, "character_image", settings["character_image"]
+                    ),
+                    image_path(
+                        self.data_dir, "background_image", settings["background_image"]
                     ),
                 ]
                 stats = [path.stat() for path in paths if path is not None]

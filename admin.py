@@ -27,6 +27,7 @@ class AdminAPI:
             ("preview", self.preview, "POST"),
             ("qr/upload", self.upload, "POST"),
             ("character/upload", self.upload_character, "POST"),
+            ("background/upload", self.upload_background, "POST"),
             ("images/read", self.read_image, "POST"),
             ("images/crop", self.crop_image, "POST"),
         ):
@@ -123,6 +124,9 @@ class AdminAPI:
 
     async def upload_character(self):
         return await self.upload("character")
+
+    async def upload_background(self):
+        return await self.upload("background")
 
     async def read_image(self):
         data = await self.payload()

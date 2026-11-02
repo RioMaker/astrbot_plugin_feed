@@ -106,7 +106,11 @@ class Handler(BaseHTTPRequestHandler):
                 result = {
                     "image": "data:image/png;base64," + base64.b64encode(image).decode()
                 }
-            elif self.path in {"/dev/qr/upload", "/dev/character/upload"}:
+            elif self.path in {
+                "/dev/qr/upload",
+                "/dev/character/upload",
+                "/dev/background/upload",
+            }:
                 kind = self.path.split("/")[2]
                 path = loop.run_until_complete(
                     service.upload(

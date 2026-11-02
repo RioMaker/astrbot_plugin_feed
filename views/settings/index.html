@@ -31,11 +31,18 @@
           <div class="section-heading"><span class="step">03</span><h2>角色模板</h2><span id="character-state" class="tag">内置可可子</span></div>
           <div class="template-thumb"><img id="character-preview" alt="当前角色模板" hidden /><span id="character-loading">正在读取角色模板…</span></div>
           <label class="upload-zone compact-upload" id="character-drop-zone" for="character-file"><strong>替换角色图片</strong><span>上传后可裁切，透明区域会保留</span><input id="character-file" type="file" accept="image/png,image/jpeg,image/webp" /></label>
-          <div class="file-info"><span id="character-name">使用内置可可子</span><button type="button" id="crop-character" class="text-button" disabled>裁切模板</button><button type="button" id="restore-character" class="text-button" disabled>恢复默认</button></div>
+          <div class="file-info"><span id="character-name">使用内置可可子</span><button type="button" id="crop-character" class="text-button" disabled>裁切模板</button><button type="button" id="restore-character" class="text-button" disabled>恢复默认角色</button></div>
           <div class="image-spec"><strong>推荐 1600 × 672 像素 · 透明 PNG</strong><p>角色显示区为 800 × 336 像素（50:21）。其他比例会等比缩放、底部对齐；气泡和二维码位置保留。</p><p>PNG / JPG / WebP，最大 8 MB；至少 80 × 80，最长边 6000，总像素不超过 1600 万。JPG 自带的背景不会自动抠掉。</p></div>
         </section>
         <section class="panel">
-          <div class="section-heading"><span class="step">04</span><h2>可可子说什么</h2></div>
+          <div class="section-heading"><span class="step">04</span><h2>整张底图</h2><span id="background-state" class="tag">默认底图</span></div>
+          <div class="template-thumb background-thumb"><img id="background-preview" alt="当前整张底图" hidden /><span id="background-loading">正在读取底图…</span></div>
+          <label class="upload-zone compact-upload" id="background-drop-zone" for="background-file"><strong>替换整张底图</strong><span>独立于角色模板，上传后可裁切</span><input id="background-file" type="file" accept="image/png,image/jpeg,image/webp" /></label>
+          <div class="file-info"><span id="background-name">使用默认浅绿色底图</span><button type="button" id="crop-background" class="text-button" disabled>裁切底图</button><button type="button" id="restore-background" class="text-button" disabled>恢复默认底图</button></div>
+          <div class="image-spec"><strong>推荐 1080 × 1440 或 2160 × 2880 像素 · 3:4</strong><p>底图覆盖整张 1080 × 1440 成图。标题、气泡、角色和二维码继续叠加在固定位置。其他比例等比居中，空白及透明区域填充米白色；选择 3:4 裁切可铺满。</p><p>PNG / JPG / WebP，最大 8 MB；至少 80 × 80，最长边 6000，总像素不超过 1600 万。恢复底图不会改变角色、二维码或文案。</p></div>
+        </section>
+        <section class="panel">
+          <div class="section-heading"><span class="step">05</span><h2>可可子说什么</h2></div>
           <label for="bubble-text">气泡文案 <span id="text-count" class="counter">0 / 120</span></label>
           <textarea id="bubble-text" rows="4" maxlength="120" placeholder="写一句感谢投喂的话…"></textarea>
           <p class="hint">支持换行，字号会随文字长度自动调整。</p>

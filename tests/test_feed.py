@@ -352,6 +352,7 @@ async def test_asset_reader_rejects_other_kind_and_path(service, code):
     for kind, source in [
         ("unsupported", path),
         ("character", path),
+        ("background", path),
         ("qr", "../private.png"),
         ("qr", "files/payment_qr/../../private.png"),
     ]:
@@ -380,3 +381,107 @@ async def test_title_migration_save_and_render(service, code):
 def test_invalid_titles(title):
     with pytest.raises(FeedError):
         validate_settings({"card_title": title})
+
+
+async def test_background_and_character_restore_independently(service, code):
+    service.config.pop("background_image")  # 0.2.0 配置无需迁移文件即可使用。
+    service.config["payment_qr"] = [await service.upload(code[2])]
+    service.config["card_title"] = "可可子投喂站"
+    before = await service.command_image()
+    assert service.settings()["background_image"] == []
+    character = await service.upload(
+        image_bytes(Image.new("RGBA", (800, 336), (220, 50, 80, 128))), "character"
+    )
+    background = await service.upload(
+        image_bytes(Image.new("RGB", (1080, 1440), "#eadfff")), "background"
+    )
+    state = service.state()
+    both = {
+        **state["settings"],
+        "character_image": [character],
+        "background_image": [background],
+    }
+    preview = await service.preview(both)
+    assert await service.command_image() == before  # 上传、预览不会提前生效。
+    await service.save(both, state["revision"])
+    result = await service.command_image()
+    assert result == preview
+    assert zxingcpp.read_barcode(Image.open(io.BytesIO(result))).text == code[0]
+
+    state = service.state()
+    await service.save({**state["settings"], "character_image": []}, state["revision"])
+    assert service.settings()["background_image"] == [background]
+    assert Image.open(io.BytesIO(await service.command_image())).getpixel((0, 0)) == (
+        234,
+        223,
+        255,
+    )
+
+    state = service.state()
+    await service.save(
+        {**state["settings"], "character_image": [character], "background_image": []},
+        state["revision"],
+    )
+    assert service.settings()["character_image"] == [character]
+    assert service.settings()["card_title"] == "可可子投喂站"
+    assert service.settings()["payment_qr"] == both["payment_qr"]
+    assert await service.command_image() == await service.preview(
+        {**both, "background_image": []}
+    )
+
+    state = service.state()
+    await service.save({**state["settings"], "character_image": []}, state["revision"])
+    assert await service.command_image() == before
+    assert (service.data_dir / character).exists()
+    assert (service.data_dir / background).exists()
+
+
+async def test_background_default_preview_crop_and_alpha(service):
+    info = await service.image_info("background", "")
+    assert (info["width"], info["height"]) == (1080, 1440)
+    source = Image.new("RGBA", (400, 600), (0, 0, 0, 0))
+    source.paste((40, 70, 200, 255), (100, 100, 300, 500))
+    path = await service.upload(image_bytes(source), "background")
+    cropped = await service.crop(
+        "background", path, {"x": 50, "y": 100, "width": 300, "height": 400}
+    )
+    with Image.open(service.data_dir / cropped) as image:
+        assert image.size == (300, 400)
+        assert image.getchannel("A").getextrema() == (0, 255)
+    assert service.settings()["background_image"] == []
+    assert (service.data_dir / path).exists()
+    # 默认底图也可裁切，产生独立文件，默认图始终可以重新恢复。
+    await service.crop("background", "", {"x": 0, "y": 0, "width": 540, "height": 720})
+    assert await service.image_info("background", "") == info
+
+
+def test_background_preserves_qr_and_contains_whole_image(code):
+    square = Image.new("RGB", (400, 400), "#eadfff")
+    result = Image.open(io.BytesIO(render_card(DEFAULTS, code[1], background=square)))
+    assert result.getpixel((0, 0)) == (249, 247, 237)  # 非 3:4 图片等比居中留白。
+    assert result.getpixel((0, 720)) == (234, 223, 255)
+    transparent = Image.new("RGBA", (108, 144), (50, 60, 70, 0))
+    other = Image.open(
+        io.BytesIO(render_card(DEFAULTS, code[1], background=transparent))
+    )
+    assert other.getpixel((0, 720)) == (249, 247, 237)
+    baseline = Image.open(io.BytesIO(render_card(DEFAULTS, code[1])))
+    assert (
+        ImageChops.difference(baseline.crop(QR_BOX), result.crop(QR_BOX)).getbbox()
+        is None
+    )
+    assert zxingcpp.read_barcode(result.resize((540, 720))).text == code[0]
+
+
+async def test_native_background_update_invalidates_command_cache(service, code):
+    service.config["payment_qr"] = [await service.upload(code[2])]
+    path = service.data_dir / "files/background_image/native.png"
+    path.parent.mkdir(parents=True)
+    Image.new("RGB", (108, 144), "#eadfff").save(path)
+    service.config["background_image"] = ["files/background_image/native.png"]
+    first = await service.command_image()
+    Image.new("RGB", (216, 288), "#ffeadd").save(path)
+    second = await service.command_image()
+    assert first != second
+    assert Image.open(io.BytesIO(second)).getpixel((0, 0)) == (255, 234, 221)
+    assert await FeedService(service.config, service.data_dir).command_image() == second

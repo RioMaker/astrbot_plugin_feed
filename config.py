@@ -8,12 +8,21 @@ import re
 from pathlib import Path, PurePosixPath
 
 PLUGIN_NAME = "astrbot_plugin_feed"
-IMAGE_FIELDS = {"qr": "payment_qr", "character": "character_image"}
-IMAGE_LABELS = {"payment_qr": "付款二维码", "character_image": "角色模板"}
+IMAGE_FIELDS = {
+    "qr": "payment_qr",
+    "character": "character_image",
+    "background": "background_image",
+}
+IMAGE_LABELS = {
+    "payment_qr": "付款二维码",
+    "character_image": "角色模板",
+    "background_image": "整张底图",
+}
 DEFAULTS = {
     "enabled": True,
     "payment_qr": [],
     "character_image": [],
+    "background_image": [],
     "card_title": "赞助",
     "bubble_text": "谢谢你的投喂！\n可可子会继续努力哒～",
     "footer_text": "自愿赞助 · 感谢每一份心意",

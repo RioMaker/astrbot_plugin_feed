@@ -89,19 +89,41 @@ def _center(draw: ImageDraw.ImageDraw, text: str, y: int, size: int, fill: str):
     draw.text((540, y), text, font=font(size), fill=fill, anchor="mt")
 
 
+def default_background() -> Image.Image:
+    """可单独预览、裁切或恢复的默认底图，不含文字和其他图层。"""
+    canvas = Image.new("RGB", CARD_SIZE, "#f9f7ed")
+    draw = ImageDraw.Draw(canvas)
+    draw.rounded_rectangle((32, 32, 1048, 1408), radius=60, fill="#edf3da")
+    draw.ellipse((-160, 1020, 270, 1450), fill="#e1ebc6")
+    draw.ellipse((870, -130, 1230, 230), fill="#e1ebc6")
+    return canvas
+
+
 def render_card(
     settings: dict,
     qr: Image.Image | None,
     character_path: Path | None = None,
     *,
     character: Image.Image | None = None,
+    background: Image.Image | None = None,
 ) -> bytes:
-    canvas = Image.new("RGB", CARD_SIZE, "#f9f7ed")
+    if background is None:
+        canvas = default_background()
+    else:
+        canvas = Image.new("RGB", CARD_SIZE, "#f9f7ed")
+        contained = ImageOps.contain(
+            background.convert("RGBA"), CARD_SIZE, Image.Resampling.LANCZOS
+        )
+        canvas.paste(
+            contained,
+            (
+                (CARD_SIZE[0] - contained.width) // 2,
+                (CARD_SIZE[1] - contained.height) // 2,
+            ),
+            contained,
+        )
     draw = ImageDraw.Draw(canvas)
-    # 轻量几何底纹与留白；角色插画来自 imagegen，文字不烧录在模板里。
-    draw.rounded_rectangle((32, 32, 1048, 1408), radius=60, fill="#edf3da")
-    draw.ellipse((-160, 1020, 270, 1450), fill="#e1ebc6")
-    draw.ellipse((870, -130, 1230, 230), fill="#e1ebc6")
+    # 文字、角色和二维码位于底图上方，替换底图不改变这些图层的位置。
     title = settings["card_title"]
     title_size = 44
     while title_size > 28 and font(title_size).getlength(title) > 828:

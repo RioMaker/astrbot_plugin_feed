@@ -1,7 +1,7 @@
 name: astrbot_plugin_feed
 display_name: 赞助
-desc: 输入 /投喂 发送赞助卡片；支持标题文案设置、角色模板替换与恢复默认、图片裁切和可视化预览。
-version: "0.2.0"
+desc: 输入 /投喂 发送赞助卡片；支持标题文案设置、角色和整张底图分别替换及恢复默认、图片裁切和可视化预览。
+version: "0.3.0"
 author: Rio
 repo: ""
 astrbot_version: ">=4.13.0"
